@@ -1,19 +1,19 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @EnvironmentObject var auth: AuthService
+    @Environment(AuthService.self) var auth
 
-    @StateObject private var txVM: TransactionViewModel
-    @StateObject private var catVM: CategoryViewModel
-    @StateObject private var budgetVM: BudgetViewModel
+    @State private var txVM: TransactionViewModel
+    @State private var catVM: CategoryViewModel
+    @State private var budgetVM: BudgetViewModel
 
     private let service = FirestoreService()
 
     init(userId: String) {
         let svc = FirestoreService()
-        _txVM = StateObject(wrappedValue: TransactionViewModel(userId: userId, service: svc))
-        _catVM = StateObject(wrappedValue: CategoryViewModel(userId: userId, service: svc))
-        _budgetVM = StateObject(wrappedValue: BudgetViewModel(userId: userId, service: svc))
+        _txVM = State(initialValue: TransactionViewModel(userId: userId, service: svc))
+        _catVM = State(initialValue: CategoryViewModel(userId: userId, service: svc))
+        _budgetVM = State(initialValue: BudgetViewModel(userId: userId, service: svc))
     }
 
     var body: some View {
@@ -33,9 +33,10 @@ struct MainTabView: View {
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gear") }
         }
-        .environmentObject(txVM)
-        .environmentObject(catVM)
-        .environmentObject(budgetVM)
+        .tint(Color.peraAccent)
+        .environment(txVM)
+        .environment(catVM)
+        .environment(budgetVM)
         .task {
             async let tx: () = txVM.load()
             async let cats: () = catVM.load()

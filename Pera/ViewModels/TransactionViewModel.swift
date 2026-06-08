@@ -1,11 +1,14 @@
+import Observation
 import Foundation
-import Combine
 
-class TransactionViewModel: ObservableObject {
-    @Published var transactions: [Transaction] = []
-    @Published var selectedMonth: String = Date().monthKey
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+@MainActor
+class TransactionViewModel {
+    var transactions: [Transaction] = []
+    var dateFilter: DateFilter = .month(Date())
+    var selectedMonth: String = Date().monthKey  // used by budget views
+    var isLoading = false
+    var errorMessage: String?
 
     private let service: FirestoreService
     let userId: String
@@ -35,60 +38,132 @@ class TransactionViewModel: ObservableObject {
             .reduce(0) { $0 + $1.amount }
     }
 
+    func earnedByCategory(_ categoryId: String) -> Double {
+        transactions
+            .filter { $0.type == .income && $0.categoryId == categoryId }
+            .reduce(0) { $0 + $1.amount }
+    }
+
     func transactions(for categoryId: String) -> [Transaction] {
         transactions.filter { $0.categoryId == categoryId }
     }
 
     var groupedByDate: [(key: Date, value: [Transaction])] {
-        let grouped = Dictionary(grouping: transactions) { t -> Date in
-            Calendar.current.startOfDay(for: t.date)
-        }
+        let grouped = Dictionary(grouping: transactions) { Calendar.current.startOfDay(for: $0.date) }
         return grouped.sorted { $0.key > $1.key }
     }
 
     // MARK: - Actions
 
     func load() async {
-        await set(loading: true)
+        isLoading = true
         do {
-            let result = try await service.fetchTransactions(userId: userId, month: selectedMonth)
-            await MainActor.run { transactions = result }
+            let (start, end) = dateFilter.dateRange
+            transactions = try await service.fetchTransactions(userId: userId, start: start, end: end)
         } catch {
-            await set(error: error.localizedDescription)
+            errorMessage = error.localizedDescription
         }
-        await set(loading: false)
+        isLoading = false
     }
 
-    func add(_ transaction: Transaction) async {
+    @discardableResult
+    func add(_ transaction: Transaction, receiptImageData: Data? = nil) async -> Bool {
         do {
-            try await service.addTransaction(transaction)
+            var tx = transaction
+            if let data = receiptImageData {
+                let url = try await service.uploadReceipt(
+                    imageData: data, userId: userId, transactionId: tx.id)
+                tx.receiptImageURL = url
+            }
+            try await service.addTransaction(tx)
+            // Insert locally so the receipt URL is immediately visible without
+            // a server round-trip that may race against the pending write.
+            transactions.insert(tx, at: 0)
+            transactions.sort { $0.date > $1.date }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func importTransactions(_ transactions: [Transaction]) async {
+        isLoading = true
+        do {
+            for tx in transactions {
+                try await service.addTransaction(tx)
+            }
             await load()
         } catch {
-            await set(error: error.localizedDescription)
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
+    }
+
+    @discardableResult
+    func update(_ transaction: Transaction, receiptImageData: Data? = nil) async -> Bool {
+        do {
+            var tx = transaction
+            let oldReceiptURL = transactions.first(where: { $0.id == tx.id })?.receiptImageURL
+            if let data = receiptImageData {
+                let url = try await service.uploadReceipt(
+                    imageData: data, userId: userId, transactionId: tx.id)
+                tx.receiptImageURL = url
+            }
+            // Receipt was removed without a replacement — delete from Storage.
+            if oldReceiptURL != nil && receiptImageData == nil && tx.receiptImageURL == nil {
+                try? await service.deleteReceipt(userId: tx.userId, transactionId: tx.id)
+            }
+            try await service.updateTransaction(tx)
+            if let idx = transactions.firstIndex(where: { $0.id == tx.id }) {
+                transactions[idx] = tx
+            }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
     func delete(_ transaction: Transaction) async {
         do {
             try await service.deleteTransaction(userId: userId, id: transaction.id)
-            await MainActor.run { transactions.removeAll { $0.id == transaction.id } }
+            transactions.removeAll { $0.id == transaction.id }
         } catch {
-            await set(error: error.localizedDescription)
+            errorMessage = error.localizedDescription
         }
     }
 
-    func setMonth(_ month: String) async {
-        await MainActor.run { selectedMonth = month }
+    func deleteMultiple(_ ids: Set<String>) async {
+        do {
+            for id in ids {
+                try await service.deleteTransaction(userId: userId, id: id)
+            }
+            transactions.removeAll { ids.contains($0.id) }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func setFilter(_ filter: DateFilter) async {
+        dateFilter = filter
         await load()
     }
 
-    // MARK: - Helpers
-
-    private func set(loading: Bool) async {
-        await MainActor.run { isLoading = loading }
+    func setMonth(_ month: String) async {
+        selectedMonth = month
+        await load()
     }
 
-    private func set(error: String) async {
-        await MainActor.run { errorMessage = error }
+    func fetchTrends(months: [String]) async -> [(month: String, expenses: Double, income: Double)] {
+        var results: [(month: String, expenses: Double, income: Double)] = []
+        for month in months {
+            let (start, end) = month.monthDateRange()
+            let txs = (try? await service.fetchTransactions(userId: userId, start: start, end: end)) ?? []
+            let exp = txs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+            let inc = txs.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+            results.append((month: month, expenses: exp, income: inc))
+        }
+        return results
     }
 }

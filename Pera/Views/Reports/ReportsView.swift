@@ -2,10 +2,12 @@ import SwiftUI
 import Charts
 
 struct ReportsView: View {
-    @EnvironmentObject var txVM: TransactionViewModel
-    @EnvironmentObject var catVM: CategoryViewModel
+    @Environment(TransactionViewModel.self) var txVM
+    @Environment(CategoryViewModel.self) var catVM
 
     @State private var selectedTab: ReportTab = .spending
+    @State private var trendPoints: [MonthPoint] = []
+    @State private var isLoadingTrends = false
 
     enum ReportTab: String, CaseIterable {
         case spending = "Spending"
@@ -14,6 +16,7 @@ struct ReportsView: View {
     }
 
     var body: some View {
+        @Bindable var txVM = txVM
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
@@ -27,7 +30,7 @@ struct ReportsView: View {
 
                     switch selectedTab {
                     case .spending: SpendingByCategory()
-                    case .trends:   MonthlyTrends()
+                    case .trends:   MonthlyTrends(points: trendPoints, isLoading: isLoadingTrends)
                     case .income:   IncomeBreakdown()
                     }
                 }
@@ -36,20 +39,48 @@ struct ReportsView: View {
             .navigationTitle("Reports")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    MonthPickerButton(selectedMonth: $txVM.selectedMonth) {
+                    DateFilterButton(filter: $txVM.dateFilter) {
                         Task { await txVM.load() }
                     }
                 }
             }
+            .task(id: txVM.dateFilter) {
+                async let txLoad: () = txVM.load()
+                async let trends: () = loadTrends()
+                _ = await (txLoad, trends)
+            }
         }
     }
+
+    private func loadTrends() async {
+        isLoadingTrends = true
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        let months = (-5...0).map { offset in Date().adding(months: offset).monthKey }
+        let raw = await txVM.fetchTrends(months: months)
+        trendPoints = raw.map { entry in
+            let (start, _) = entry.month.monthDateRange()
+            return MonthPoint(month: entry.month, label: formatter.string(from: start),
+                              expenses: entry.expenses, income: entry.income)
+        }
+        isLoadingTrends = false
+    }
+
+}
+
+struct MonthPoint: Identifiable {
+    let id = UUID()
+    let month: String
+    let label: String
+    let expenses: Double
+    let income: Double
 }
 
 // MARK: - Spending by Category
 
 private struct SpendingByCategory: View {
-    @EnvironmentObject var txVM: TransactionViewModel
-    @EnvironmentObject var catVM: CategoryViewModel
+    @Environment(TransactionViewModel.self) var txVM
+    @Environment(CategoryViewModel.self) var catVM
 
     struct CategorySpend: Identifiable {
         var id: String { categoryId }
@@ -69,6 +100,8 @@ private struct SpendingByCategory: View {
         .sorted { $0.amount > $1.amount }
     }
 
+    @State private var tappedItem: CategorySpend?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Spending by Category")
@@ -79,6 +112,7 @@ private struct SpendingByCategory: View {
                 ContentUnavailableView("No Data", systemImage: "chart.pie",
                     description: Text("Add some transactions to see your spending breakdown."))
             } else {
+                let total = data.reduce(0) { $0 + $1.amount }
                 Chart(data) { item in
                     SectorMark(
                         angle: .value("Amount", item.amount),
@@ -87,6 +121,31 @@ private struct SpendingByCategory: View {
                     )
                     .foregroundStyle(item.color)
                     .cornerRadius(4)
+                    .annotation(position: .overlay) {
+                        if total > 0 && item.amount / total >= 0.07 {
+                            Button {
+                                tappedItem = tappedItem?.id == item.id ? nil : item
+                            } label: {
+                                CategoryIconView(icon: item.icon, size: 15, color: .white)
+                            }
+                            .buttonStyle(.plain)
+                            .popover(isPresented: Binding(
+                                get: { tappedItem?.id == item.id },
+                                set: { if !$0 { tappedItem = nil } }
+                            )) {
+                                VStack(spacing: 4) {
+                                    CategoryIconView(icon: item.icon, size: 18, color: item.color)
+                                    Text(item.name)
+                                        .font(.caption.weight(.semibold))
+                                    Text(item.amount.currencyString)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(12)
+                                .presentationCompactAdaptation(.popover)
+                            }
+                        }
+                    }
                 }
                 .frame(height: 220)
                 .padding(.horizontal)
@@ -95,9 +154,12 @@ private struct SpendingByCategory: View {
                     ForEach(data) { item in
                         HStack {
                             Circle().fill(item.color).frame(width: 10, height: 10)
-                            Label(item.name, systemImage: item.icon)
-                                .font(.subheadline)
-                                .foregroundStyle(item.color)
+                            HStack(spacing: 6) {
+                                CategoryIconView(icon: item.icon, size: 13, color: item.color)
+                                Text(item.name)
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(item.color)
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(item.amount.currencyString)
@@ -112,7 +174,7 @@ private struct SpendingByCategory: View {
                         if item.id != data.last?.id { Divider().padding(.leading) }
                     }
                 }
-                .background(Color(.secondarySystemBackground))
+                .background(Color.peraSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .padding(.horizontal)
             }
@@ -128,17 +190,8 @@ private struct SpendingByCategory: View {
 // MARK: - Monthly Trends
 
 private struct MonthlyTrends: View {
-    @EnvironmentObject var txVM: TransactionViewModel
-
-    struct MonthPoint: Identifiable {
-        let id = UUID()
-        let month: String
-        let label: String
-        let expenses: Double
-        let income: Double
-    }
-
-    @State private var points: [MonthPoint] = []
+    let points: [MonthPoint]
+    let isLoading: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -146,52 +199,45 @@ private struct MonthlyTrends: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            Chart(points) { pt in
-                BarMark(x: .value("Month", pt.label),
-                        y: .value("Expenses", pt.expenses))
-                    .foregroundStyle(.red.opacity(0.8))
-                    .annotation(position: .top, alignment: .center) {
-                        if pt.expenses > 0 {
-                            Text(pt.expenses.compactCurrencyString)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 240)
+            } else {
+                Chart(points) { pt in
+                    BarMark(x: .value("Month", pt.label),
+                            y: .value("Expenses", pt.expenses))
+                        .foregroundStyle(Color.peraExpense.opacity(0.85))
+                        .annotation(position: .top, alignment: .center) {
+                            if pt.expenses > 0 {
+                                Text(pt.expenses.compactCurrencyString)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    }
 
-                LineMark(x: .value("Month", pt.label),
-                         y: .value("Income", pt.income))
-                    .foregroundStyle(.green)
-                    .symbol(Circle())
+                    LineMark(x: .value("Month", pt.label),
+                             y: .value("Income", pt.income))
+                        .foregroundStyle(Color.peraIncome)
+                        .symbol(Circle())
+                        .annotation(position: .top, alignment: .center) {
+                            if pt.income > 0 {
+                                Text(pt.income.compactCurrencyString)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.peraIncome)
+                            }
+                        }
+                }
+                .frame(height: 240)
+                .padding(.horizontal)
+
+                HStack(spacing: 20) {
+                    Legend(color: Color.peraExpense, label: "Expenses")
+                    Legend(color: Color.peraIncome, label: "Income")
+                }
+                .padding(.horizontal)
             }
-            .frame(height: 240)
-            .padding(.horizontal)
-
-            HStack(spacing: 20) {
-                Legend(color: .red.opacity(0.8), label: "Expenses")
-                Legend(color: .green, label: "Income")
-            }
-            .padding(.horizontal)
         }
-        .onAppear { buildPoints() }
-        .onChange(of: txVM.selectedMonth) { _, _ in buildPoints() }
-    }
-
-    private func buildPoints() {
-        points = (-5...0).map { offset in
-            let month = Date().adding(months: offset).monthKey
-            let (start, _) = month.monthDateRange()
-            let label = DateFormatter().then {
-                $0.dateFormat = "MMM"
-            }.string(from: start)
-            return MonthPoint(month: month, label: label, expenses: 0, income: 0)
-        }
-    }
-}
-
-extension DateFormatter {
-    func then(_ configure: (DateFormatter) -> Void) -> DateFormatter {
-        configure(self)
-        return self
     }
 }
 
@@ -213,8 +259,8 @@ private struct Legend: View {
 // MARK: - Income Breakdown
 
 private struct IncomeBreakdown: View {
-    @EnvironmentObject var txVM: TransactionViewModel
-    @EnvironmentObject var catVM: CategoryViewModel
+    @Environment(TransactionViewModel.self) var txVM
+    @Environment(CategoryViewModel.self) var catVM
 
     private var incomeTxs: [Transaction] {
         txVM.transactions.filter { $0.type == .income }
@@ -236,7 +282,7 @@ private struct IncomeBreakdown: View {
                 Spacer()
             }
             .padding()
-            .background(Color(.secondarySystemBackground))
+            .background(Color.peraSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.horizontal)
 
@@ -250,7 +296,7 @@ private struct IncomeBreakdown: View {
                         if tx.id != incomeTxs.last?.id { Divider().padding(.leading, 56) }
                     }
                 }
-                .background(Color(.secondarySystemBackground))
+                .background(Color.peraSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .padding(.horizontal)
             }

@@ -1,9 +1,12 @@
+import Observation
 import Foundation
 
-class CategoryViewModel: ObservableObject {
-    @Published var categories: [Category] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+@MainActor
+class CategoryViewModel {
+    var categories: [Category] = []
+    var isLoading = false
+    var errorMessage: String?
 
     private let service: FirestoreService
     let userId: String
@@ -21,18 +24,18 @@ class CategoryViewModel: ObservableObject {
     }
 
     func load() async {
-        await MainActor.run { isLoading = true }
+        isLoading = true
         do {
             var cats = try await service.fetchCategories(userId: userId)
             if cats.isEmpty {
                 try await service.seedDefaultCategories(userId: userId)
                 cats = try await service.fetchCategories(userId: userId)
             }
-            await MainActor.run { categories = cats }
+            categories = cats
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
         }
-        await MainActor.run { isLoading = false }
+        isLoading = false
     }
 
     func add(_ category: Category) async {
@@ -40,16 +43,16 @@ class CategoryViewModel: ObservableObject {
             try await service.saveCategory(category)
             await load()
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
         }
     }
 
     func delete(_ category: Category) async {
         do {
             try await service.deleteCategory(userId: userId, id: category.id)
-            await MainActor.run { categories.removeAll { $0.id == category.id } }
+            categories.removeAll { $0.id == category.id }
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
         }
     }
 }

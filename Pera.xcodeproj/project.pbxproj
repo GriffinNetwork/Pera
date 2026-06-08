@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B63C46032FB6E01E0060BB33 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B63C46022FB6E01E0060BB33 /* FirebaseAuth */; };
+		B63C46052FB6E01E0060BB33 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = B63C46042FB6E01E0060BB33 /* FirebaseFirestore */; };
+		B6EA1F462FB80F6D006965F8 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = B6EA1F452FB80F6D006965F8 /* FirebaseStorage */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		B63C45B82FB6CD7F0060BB33 /* Pera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +29,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B63C46032FB6E01E0060BB33 /* FirebaseAuth in Frameworks */,
+				B63C46052FB6E01E0060BB33 /* FirebaseFirestore in Frameworks */,
+				B6EA1F462FB80F6D006965F8 /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +42,7 @@
 			isa = PBXGroup;
 			children = (
 				B63C45BA2FB6CD7F0060BB33 /* Pera */,
+				B6EA1F442FB80F6D006965F8 /* Frameworks */,
 				B63C45B92FB6CD7F0060BB33 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +53,13 @@
 				B63C45B82FB6CD7F0060BB33 /* Pera.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B6EA1F442FB80F6D006965F8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +82,9 @@
 			);
 			name = Pera;
 			packageProductDependencies = (
+				B63C46022FB6E01E0060BB33 /* FirebaseAuth */,
+				B63C46042FB6E01E0060BB33 /* FirebaseFirestore */,
+				B6EA1F452FB80F6D006965F8 /* FirebaseStorage */,
 			);
 			productName = Pera;
 			productReference = B63C45B82FB6CD7F0060BB33 /* Pera.app */;
@@ -94,6 +114,9 @@
 			);
 			mainGroup = B63C45AF2FB6CD7F0060BB33;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B63C46012FB6E01E0060BB33 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B63C45B92FB6CD7F0060BB33 /* Products */;
 			projectDirPath = "";
@@ -256,9 +279,12 @@
 				DEVELOPMENT_TEAM = NG9D3G8FFJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Pera;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Pera needs camera access to photograph receipts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_UIImageName = LaunchIcon;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -288,9 +314,12 @@
 				DEVELOPMENT_TEAM = NG9D3G8FFJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Pera;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Pera needs camera access to photograph receipts.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_UIImageName = LaunchIcon;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -332,6 +361,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B63C46012FB6E01E0060BB33 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B63C46022FB6E01E0060BB33 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B63C46012FB6E01E0060BB33 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		B63C46042FB6E01E0060BB33 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B63C46012FB6E01E0060BB33 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		B6EA1F452FB80F6D006965F8 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B63C46012FB6E01E0060BB33 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B63C45B02FB6CD7F0060BB33 /* Project object */;
 }

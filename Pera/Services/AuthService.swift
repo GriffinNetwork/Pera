@@ -1,24 +1,30 @@
+import Observation
 import Foundation
 import FirebaseAuth
+import FirebaseFirestore
 
-enum AuthState {
+enum AuthState: Equatable {
     case loading
     case authenticated(String)
     case unauthenticated
 }
 
-class AuthService: ObservableObject {
-    @Published var authState: AuthState = .loading
-    @Published var currentUser: FirebaseAuth.User?
-    @Published var errorMessage: String?
-    @Published var isLoading = false
+@Observable
+@MainActor
+class AuthService {
+    var authState: AuthState = .loading
+    var currentUser: FirebaseAuth.User?
+    var errorMessage: String?
+    var isLoading = false
 
-    private var handle: AuthStateDidChangeListenerHandle?
+    nonisolated(unsafe) private var handle: AuthStateDidChangeListenerHandle?
 
     init() {
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            self?.currentUser = user
-            self?.authState = user.map { .authenticated($0.uid) } ?? .unauthenticated
+            Task { @MainActor [weak self] in
+                self?.currentUser = user
+                self?.authState = user.map { .authenticated($0.uid) } ?? .unauthenticated
+            }
         }
     }
 
@@ -29,37 +35,58 @@ class AuthService: ObservableObject {
     var userId: String? { currentUser?.uid }
 
     func signIn(email: String, password: String) async {
-        await run {
+        isLoading = true
+        errorMessage = nil
+        do {
             try await Auth.auth().signIn(withEmail: email, password: password)
+        } catch {
+            errorMessage = error.localizedDescription
         }
+        isLoading = false
     }
 
     func signUp(email: String, password: String, displayName: String) async {
-        await run {
+        isLoading = true
+        errorMessage = nil
+        do {
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
             let req = result.user.createProfileChangeRequest()
             req.displayName = displayName
             try await req.commitChanges()
+        } catch {
+            errorMessage = error.localizedDescription
         }
+        isLoading = false
     }
 
     func sendPasswordReset(email: String) async {
-        await run {
+        isLoading = true
+        errorMessage = nil
+        do {
             try await Auth.auth().sendPasswordReset(withEmail: email)
+        } catch {
+            errorMessage = error.localizedDescription
         }
+        isLoading = false
     }
 
     func signOut() {
         try? Auth.auth().signOut()
     }
 
-    private func run(_ block: @escaping () async throws -> Void) async {
-        await MainActor.run { isLoading = true; errorMessage = nil }
+    func deleteAccount() async {
+        isLoading = true
+        errorMessage = nil
         do {
-            try await block()
+            guard let user = currentUser, let uid = userId else { return }
+            try await FirestoreService().deleteAllUserData(userId: uid)
+            try await user.delete()
+        } catch let error as NSError where error.domain == AuthErrorDomain
+                    && error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+            errorMessage = "For security, please sign out and sign back in before deleting your account."
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
         }
-        await MainActor.run { isLoading = false }
+        isLoading = false
     }
 }

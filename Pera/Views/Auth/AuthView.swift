@@ -42,14 +42,15 @@ struct AuthView: View {
                 Button {
                     withAnimation(.spring(response: 0.4)) { showLogin.toggle() }
                 } label: {
-                    if showLogin {
-                        Text("Don't have an account? ") + Text("Sign Up").bold().foregroundColor(.accentColor)
-                    } else {
-                        Text("Already have an account? ") + Text("Log In").bold().foregroundColor(.accentColor)
+                    HStack(spacing: 3) {
+                        Text(showLogin ? "Don't have an account?" : "Already have an account?")
+                        Text(showLogin ? "Sign Up" : "Log In")
+                            .bold()
+                            .foregroundStyle(Color.accentColor)
                     }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(.secondary)
-                .font(.footnote)
                 .padding(.bottom, 40)
             }
             .padding(.horizontal, 24)

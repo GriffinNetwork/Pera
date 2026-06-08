@@ -9,6 +9,7 @@ struct Category: Identifiable, Codable, Hashable {
     var colorHex: String
     var type: TransactionType
     var subcategories: [String] = []
+    var subcategoryBudgets: [String: Double] = [:]
     var budgetAmount: Double = 0
     var rollover: Bool = false
     var sortOrder: Int = 0

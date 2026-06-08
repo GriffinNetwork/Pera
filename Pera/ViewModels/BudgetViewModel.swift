@@ -1,9 +1,12 @@
+import Observation
 import Foundation
 
-class BudgetViewModel: ObservableObject {
-    @Published var envelopes: [BudgetEnvelope] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+@MainActor
+class BudgetViewModel {
+    var envelopes: [BudgetEnvelope] = []
+    var isLoading = false
+    var errorMessage: String?
 
     private let service: FirestoreService
     let userId: String
@@ -20,28 +23,34 @@ class BudgetViewModel: ObservableObject {
     }
 
     func load(month: String) async {
-        await MainActor.run { isLoading = true }
+        isLoading = true
         do {
-            let result = try await service.fetchEnvelopes(userId: userId, month: month)
-            await MainActor.run { envelopes = result }
+            envelopes = try await service.fetchEnvelopes(userId: userId, month: month)
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
         }
-        await MainActor.run { isLoading = false }
+        isLoading = false
     }
 
     func upsert(_ envelope: BudgetEnvelope) async {
         do {
             try await service.saveEnvelope(envelope)
-            await MainActor.run {
-                if let idx = envelopes.firstIndex(where: { $0.id == envelope.id }) {
-                    envelopes[idx] = envelope
-                } else {
-                    envelopes.append(envelope)
-                }
+            if let idx = envelopes.firstIndex(where: { $0.id == envelope.id }) {
+                envelopes[idx] = envelope
+            } else {
+                envelopes.append(envelope)
             }
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func delete(_ envelope: BudgetEnvelope) async {
+        do {
+            try await service.deleteEnvelope(userId: userId, id: envelope.id)
+            envelopes.removeAll { $0.id == envelope.id }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

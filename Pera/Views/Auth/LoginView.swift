@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @EnvironmentObject var auth: AuthService
+    @Environment(AuthService.self) var auth
 
     @State private var email = ""
     @State private var password = ""

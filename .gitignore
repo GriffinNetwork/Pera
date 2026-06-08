@@ -1,0 +1,32 @@
+# Claude Code
+.claude/
+
+# Firebase credentials
+Pera/GoogleService-Info.plist
+
+# Sensitive docs
+APP_SPEC.md
+FIREBASE_SETUP.md
+
+# Xcode
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+xcuserdata/
+*.moved-aside
+*.xcuserstate
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods
+Pods/
+*.xcworkspace
+
+# macOS
+.DS_Store

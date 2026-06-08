@@ -57,6 +57,28 @@ extension Double {
     }
 }
 
+// MARK: - Pera semantic colors
+
+extension Color {
+    /// Resolves to different colors in light vs dark mode.
+    init(light: Color, dark: Color) {
+        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
+    }
+
+    /// Warm cream (light) / near-black (dark) — page backgrounds
+    static let peraBackground = Color(light: Color(hex: "#F0EAE0"), dark: Color(hex: "#0D0D0F"))
+    /// Warm white (light) / elevated charcoal (dark) — cards and list rows
+    static let peraSurface    = Color(light: Color(hex: "#FAF6EF"), dark: Color(hex: "#1C1C21"))
+    /// Deeper cream (light) / slightly lighter dark (dark) — chips, tertiary fills
+    static let peraSecondary  = Color(light: Color(hex: "#E8E0D0"), dark: Color(hex: "#26262D"))
+    /// Sage green (light) / amber gold (dark) — primary accent / tint
+    static let peraAccent     = Color(light: Color(hex: "#6B9B71"), dark: Color(hex: "#C79A3A"))
+    /// Income — sage green (light) / teal (dark)
+    static let peraIncome     = Color(light: Color(hex: "#6B9B71"), dark: Color(hex: "#4E8E8E"))
+    /// Expense — muted terracotta (both modes)
+    static let peraExpense    = Color(light: Color(hex: "#C4684F"), dark: Color(hex: "#C05A45"))
+}
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -73,11 +95,42 @@ extension Color {
     }
 }
 
+extension String {
+    /// True when the string starts with a Unicode emoji rather than an SF Symbol name.
+    var isEmojiIcon: Bool {
+        guard let first = unicodeScalars.first else { return false }
+        return first.value > 0x2000
+    }
+}
+
+// MARK: - Shared category icon renderer
+
+struct CategoryIconView: View {
+    let icon: String
+    let size: CGFloat
+    let color: Color
+
+    var body: some View {
+        if icon.isEmojiIcon {
+            Text(icon).font(.system(size: size))
+        } else {
+            Image(systemName: icon)
+                .font(.system(size: size))
+                .foregroundStyle(color)
+        }
+    }
+}
+
 extension View {
     func cardStyle() -> some View {
         self
             .padding()
-            .background(Color(.secondarySystemBackground))
+            .background(Color.peraSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
     }
 }
